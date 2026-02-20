@@ -14,7 +14,7 @@ Dashboard financeiro pessoal moderno com controle de receitas, despesas, metas e
 git clone https://github.com/Ribashow666/dashboard_financeiro.git
 
 # Entre na pasta
-cd financas-pro
+cd meu-dashboard
 
 # Instale as dependências
 npm install
