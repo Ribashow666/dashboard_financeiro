@@ -1,46 +1,45 @@
-# 💰 Personal Finance Dashboard
+# FinançasPRO 💰
 
-Um dashboard financeiro pessoal moderno e completo, desenvolvido com foco em performance, UX e arquitetura escalável.
+Dashboard financeiro pessoal moderno com controle de receitas, despesas, metas e gráficos interativos.
 
-## 🚀 Tecnologias
+## 🚀 Como rodar
 
-- Next.js
-- TypeScript
-- TailwindCSS
-- Prisma ORM
-- PostgreSQL
-- JWT Authentication
-- Recharts
+### Pré-requisitos
+- Node.js 18+
+- npm
 
----
-
-## 📊 Funcionalidades
-
-- Autenticação segura (JWT)
-- Controle de receitas e despesas
-- Metas financeiras
-- Dashboard com gráficos interativos
-- Filtro por período
-- Exportação CSV
-- Dark mode
-- Responsivo
-
----
-
-## 🗃 Banco de Dados
-
-Modelos principais:
-
-- User
-- Transaction
-- Category
-- Goal
-
----
-
-## ⚙️ Como rodar o projeto
-
+### Instalação
 ```bash
-git clone https://github.com/
-cd nome-do-repo
+# Clone o repositório
+git clone https://github.com/Ribashow666/dashboard_financeiro.git
+
+# Entre na pasta
+cd financas-pro
+
+# Instale as dependências
 npm install
+
+# Inicie o servidor de desenvolvimento
+npm run dev
+```
+
+Acesse http://localhost:5173
+
+## 🛠 Tecnologias
+
+- React + Vite
+- Tailwind CSS v4
+- Recharts
+- Lucide React
+
+## 📦 Funcionalidades
+
+- Dashboard com cards de saldo, receitas e despesas
+- Gráficos de evolução do patrimônio
+- Gráfico de receitas vs despesas
+- Gráfico de gastos por categoria
+- Gerenciamento de transações
+- Metas financeiras com progresso
+- Relatórios e projeção futura
+- Exportação CSV
+- Dark/Light mode
