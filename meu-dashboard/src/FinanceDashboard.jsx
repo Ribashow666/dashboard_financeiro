@@ -259,9 +259,7 @@ export default function App() {
       {/* Sidebar */}
       <aside className={`${sidebarOpen ? "w-60" : "w-16"} ${surface} border-r ${border} flex flex-col py-6 transition-all duration-300 shrink-0`}>
         <div className={`flex items-center gap-3 px-4 mb-8`}>
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
-            <Wallet size={16} className="text-white" />
-          </div>
+          <img src="/src/assets/finançaspro.png" className="w-8 h-8 rounded-full object-cover shrink-0"/>
           {sidebarOpen && <span className={`font-bold text-base ${text}`}>FinançasPRO</span>}
         </div>
 
