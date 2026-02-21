@@ -338,7 +338,7 @@ function ProfilePage({ session, dark, onUpdate, toast }) {
         <div className="relative group">
           {displayAvatar
             ? <img src={displayAvatar} alt="avatar" className="w-20 h-20 rounded-2xl object-cover shadow-lg ring-2 ring-indigo-500/40" />
-            : <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">{initials}</div>
+            : <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">{initials}</div>
           }
           <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl opacity-0 group-hover:opacity-100 transition cursor-pointer">
             <span className="text-white text-xs font-semibold">Trocar foto</span>
@@ -1076,7 +1076,7 @@ export default function App() {
             </div>
             <div className="relative" onClick={e => e.stopPropagation()}>
               <button onClick={() => setProfileOpen(v => !v)}
-                className="w-9 h-9 rounded-xl overflow-hidden hover:scale-105 transition-transform shadow-lg shadow-indigo-500/30 ring-2 ring-transparent hover:ring-indigo-400 flex-shrink-0"
+                className="w-9 h-9 rounded-xl overflow-hidden hover:scale-105 transition-transform shadow-lg shadow-indigo-500/30 ring-2 ring-transparent hover:ring-indigo-400 shrink-0"
                 style={{ background: "linear-gradient(135deg,#6366f1,#9333ea)" }}>
                 {getUserAvatar()
                   ? <img src={getUserAvatar()} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -1086,7 +1086,7 @@ export default function App() {
                 <div className={`absolute right-0 top-12 w-64 rounded-2xl shadow-2xl border z-50 overflow-hidden
                   ${dark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                   <div className="p-4 border-b border-gray-700/50 flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg flex-shrink-0" style={{ background: "linear-gradient(135deg,#6366f1,#9333ea)" }}>
+                    <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shrink-0" style={{ background: "linear-gradient(135deg,#6366f1,#9333ea)" }}>
                       {getUserAvatar()
                         ? <img src={getUserAvatar()} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                         : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "bold", fontSize: "14px" }}>{getUserInitials()}</div>}
