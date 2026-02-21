@@ -484,6 +484,7 @@ function AuthScreen({ onLogin }) {
           }
           return;
         }
+        onLogin(data);
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
         if (error) return setError(translateError(error.message || error.msg || error.error_description || ""));
