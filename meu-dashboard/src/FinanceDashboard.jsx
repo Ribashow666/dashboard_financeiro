@@ -699,29 +699,55 @@ export default function App() {
 
       let allTx = txRes.data ? txRes.data.map(t => ({ ...t, desc: t.description })) : [];
 
-      // ✅ Processa recorrentes automaticamente
+      // ✅ Processa recorrentes automaticamente - preenche todos os meses faltantes
       const now = new Date();
       const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
 
-      const recorrentes = allTx.filter(t => t.recurrent && t.date?.startsWith(lastMonthStr));
-      const jaExisteEsseMes = allTx.filter(t => t.date?.startsWith(thisMonthStr)).map(t => t.description);
+      // Pega a transação recorrente mais antiga de cada "grupo"
+      const recorrentesMap = {};
+      for (const t of allTx) {
+        if (!t.recurrent) continue;
+        const key = t.description + "|" + t.type + "|" + t.category;
+        if (!recorrentesMap[key] || t.date < recorrentesMap[key].date) {
+          recorrentesMap[key] = t;
+        }
+      }
 
-      for (const t of recorrentes) {
-        if (!jaExisteEsseMes.includes(t.description)) {
-          const novaData = t.date.replace(lastMonthStr, thisMonthStr);
-          const { data, error } = await supabase.db.insertTransaction({
-            type: t.type,
-            description: t.description,
-            amount: t.amount,
-            category: t.category,
-            date: novaData,
-            recurrent: true
-          });
-          if (!error && data?.[0]) {
-            allTx = [{ ...data[0], desc: data[0].description }, ...allTx];
+      // Meses já existentes no banco
+      const mesesExistentes = new Set(
+        allTx.filter(t => t.recurrent).map(t => {
+          const key = t.description + "|" + t.type + "|" + t.category;
+          const mes = t.date?.slice(0, 7);
+          return key + "|" + mes;
+        })
+      );
+
+      for (const t of Object.values(recorrentesMap)) {
+        const key = t.description + "|" + t.type + "|" + t.category;
+        const dia = t.date?.split("-")[2] || "01";
+        const origem = new Date(t.date + "T00:00:00");
+        // itera do mês seguinte ao da origem até o mês atual
+        const cursor = new Date(origem.getFullYear(), origem.getMonth() + 1, 1);
+        const limite = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        while (cursor < limite) {
+          const mesStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+          const chave = key + "|" + mesStr;
+          if (!mesesExistentes.has(chave)) {
+            const novaData = `${mesStr}-${dia}`;
+            const { data, error } = await supabase.db.insertTransaction({
+              type: t.type,
+              description: t.description,
+              amount: t.amount,
+              category: t.category,
+              date: novaData,
+              recurrent: true
+            });
+            if (!error && data?.[0]) {
+              allTx = [{ ...data[0], desc: data[0].description }, ...allTx];
+              mesesExistentes.add(chave);
+            }
           }
+          cursor.setMonth(cursor.getMonth() + 1);
         }
       }
 
@@ -1245,7 +1271,10 @@ export default function App() {
                             {t.type === "receita" ? <TrendingUp size={14} className="text-emerald-500" /> : <TrendingDown size={14} className="text-red-500" />}
                           </div>
                           <div>
-                            <p className={`text-xs font-medium ${text}`}>{t.desc}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className={`text-xs font-medium ${text}`}>{t.desc}</p>
+                              {t.recurrent && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 font-semibold">↺</span>}
+                            </div>
                             <p className={`text-xs ${muted}`}>{t.category}</p>
                           </div>
                         </div>
@@ -1336,7 +1365,12 @@ export default function App() {
                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${t.type === "receita" ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
                               {t.type === "receita" ? <TrendingUp size={14} className="text-emerald-500" /> : <TrendingDown size={14} className="text-red-500" />}
                             </div>
-                            <span className={`text-sm font-medium ${text}`}>{t.desc}</span>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-sm font-medium ${text}`}>{t.desc}</span>
+                                {t.recurrent && <span title="Recorrente" className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 font-semibold shrink-0">↺</span>}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className={`px-5 py-3 text-sm ${muted} hidden sm:table-cell`}>
