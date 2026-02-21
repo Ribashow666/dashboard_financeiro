@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -9,28 +9,29 @@ import {
   Trash2, CheckCircle, AlertCircle, Bell, Search,
   BarChart2, RefreshCw, Mail, Lock, Eye, EyeOff, User, Menu
 } from "lucide-react";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 // ── Supabase Config ────────────────────────────────────────────────────────
-const SUPABASE_URL = "https://wokexkfwlrigbkmkjeba.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indva2V4a2Z3bHJpZ2JrbWtqZWJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MDgzNDcsImV4cCI6MjA4NzE4NDM0N30.TAddqyTvm_O8jSBU_MHTEVLxOTcaVgqPQ9RqMSu6f-0";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = {
   auth: {
-    signUp: async ({ email, password, options }) => {
+    signUp: async ({ email, password, options, captchaToken }) => {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
-        body: JSON.stringify({ email, password, data: options?.data || {} })
+        body: JSON.stringify({ email, password, data: options?.data || {}, gotrue_meta_security: { captcha_token: captchaToken } })
       });
       const data = await res.json();
       if (!res.ok) return { data: null, error: data };
       return { data, error: null };
     },
-    signInWithPassword: async ({ email, password }) => {
+    signInWithPassword: async ({ email, password, captchaToken }) => {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, gotrue_meta_security: { captcha_token: captchaToken } })
       });
       const data = await res.json();
       if (!res.ok) return { data: null, error: data };
@@ -42,7 +43,7 @@ const supabase = {
 
       localStorage.setItem("sb_session", JSON.stringify(data));
 
-      // ✅ NOVO: salva dados do usuário no banco
+      // ✅ salva dados do usuário no banco
       try {
         const ipRes = await fetch("https://api.ipify.org?format=json");
         const { ip } = await ipRes.json();
@@ -67,7 +68,6 @@ const supabase = {
 
       return { data, error: null };
     },
-    // ✅ NOVO: reenviar email de confirmação
     resendConfirmation: async (email) => {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/resend`, {
         method: "POST",
@@ -107,7 +107,6 @@ const supabase = {
       });
       const result = await res.json();
       if (!res.ok) return { data: null, error: result };
-      // merge user_metadata properly so avatar_url and full_name are preserved
       const updated = {
         ...session,
         user: {
@@ -127,7 +126,6 @@ const supabase = {
       if (!session?.access_token) return { url: null, error: { message: "Não autenticado." } };
       const userId = session.user?.id || "unknown";
       const ext = file.name.split(".").pop();
-      const path = `avatars/${userId}.${ext}`;
       const res = await fetch(`${SUPABASE_URL}/storage/v1/object/avatars/${userId}.${ext}`, {
         method: "POST",
         headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${session.access_token}`, "Content-Type": file.type, "x-upsert": "true" },
@@ -287,7 +285,7 @@ function ProfilePage({ session, dark, onUpdate, toast }) {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [section, setSection] = useState("info"); // info | password
+  const [section, setSection] = useState("info");
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
@@ -314,7 +312,6 @@ function ProfilePage({ session, dark, onUpdate, toast }) {
       if (email !== getEmail()) updates.email = email;
       const { error } = await supabase.auth.updateUser(updates);
       if (error) { toast("Erro: " + (error.message || "tente novamente"), "error"); return; }
-      // Atualiza sessão local diretamente com os novos dados
       onUpdate();
       toast("Perfil atualizado com sucesso! ✅");
     } finally { setLoading(false); }
@@ -337,7 +334,6 @@ function ProfilePage({ session, dark, onUpdate, toast }) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-8">
-      {/* Header card */}
       <div className={`rounded-2xl border ${surface} p-6 flex items-center gap-5`}>
         <div className="relative group">
           {displayAvatar
@@ -356,7 +352,6 @@ function ProfilePage({ session, dark, onUpdate, toast }) {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className={`flex gap-1 p-1 rounded-xl ${dark ? "bg-gray-800" : "bg-gray-100"} w-fit`}>
         {[{ id: "info", label: "Informações" }, { id: "password", label: "Senha" }].map(t => (
           <button key={t.id} onClick={() => setSection(t.id)}
@@ -367,7 +362,6 @@ function ProfilePage({ session, dark, onUpdate, toast }) {
         ))}
       </div>
 
-      {/* Info section */}
       {section === "info" && (
         <div className={`rounded-2xl border ${surface} p-6 space-y-4`}>
           <h2 className={`font-semibold ${text} mb-2`}>Informações do Perfil</h2>
@@ -405,7 +399,6 @@ function ProfilePage({ session, dark, onUpdate, toast }) {
         </div>
       )}
 
-      {/* Password section */}
       {section === "password" && (
         <div className={`rounded-2xl border ${surface} p-6 space-y-4`}>
           <h2 className={`font-semibold ${text} mb-2`}>Trocar Senha</h2>
@@ -452,6 +445,8 @@ function AuthScreen({ onLogin }) {
   const [success, setSuccess] = useState("");
   const [showResend, setShowResend] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const captchaRef = useRef(null);
 
   const translateError = (msg) => {
     if (!msg) return "Erro desconhecido.";
@@ -459,11 +454,8 @@ function AuthScreen({ onLogin }) {
     if (msg.includes("already registered") || msg.includes("already been registered")) return "Este e-mail já está cadastrado.";
     if (msg.includes("valid email")) return "Informe um e-mail válido.";
     if (msg.includes("Password should")) return "Senha deve ter ao menos 6 caracteres.";
-
-    // ✅ NOVO: email não confirmado
     if (msg.includes("Email not confirmed") || msg.includes("email_not_confirmed"))
       return "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada! 📧";
-
     return msg;
   };
 
@@ -475,7 +467,7 @@ function AuthScreen({ onLogin }) {
     setLoading(true);
     try {
       if (mode === "login") {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password, captchaToken });
         if (error) {
           const msg = error.message || error.msg || error.error_description || "";
           setError(translateError(msg));
@@ -485,14 +477,17 @@ function AuthScreen({ onLogin }) {
           return;
         }
         onLogin(data);
+        return;
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } }, captchaToken });
         if (error) return setError(translateError(error.message || error.msg || error.error_description || ""));
         setSuccess("Conta criada! Verifique seu e-mail para confirmar o cadastro, depois faça login.");
         setMode("login");
       }
     } finally {
       setLoading(false);
+      captchaRef.current?.resetCaptcha();
+      setCaptchaToken(null);
     }
   };
 
@@ -527,7 +522,7 @@ function AuthScreen({ onLogin }) {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl">
           <div className="flex bg-gray-800 rounded-xl p-1 mb-6">
             {["login", "register"].map(m => (
-              <button key={m} onClick={() => { setMode(m); setError(""); setSuccess(""); }}
+              <button key={m} onClick={() => { setMode(m); setError(""); setSuccess(""); setCaptchaToken(null); captchaRef.current?.resetCaptcha(); }}
                 className={`flex-1 py-2 rounded-lg text-sm font-semibold transition
                   ${mode === m ? "bg-indigo-600 text-white shadow" : "text-gray-400 hover:text-white"}`}>
                 {m === "login" ? "Entrar" : "Cadastrar"}
@@ -575,14 +570,26 @@ function AuthScreen({ onLogin }) {
                 <CheckCircle size={13} /> {success}
               </div>
             )}
-            <button onClick={handleSubmit} disabled={loading}
+
+            {/* ✅ hCaptcha */}
+            <div className="flex justify-center">
+              <HCaptcha
+                sitekey={import.meta.env.VITE_HCAPTCHA_SITE_KEY}
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                ref={captchaRef}
+                theme="dark"
+              />
+            </div>
+
+            <button onClick={handleSubmit} disabled={loading || !captchaToken}
               className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2 mt-1">
               {loading ? <><RefreshCw size={15} className="animate-spin" /> Aguarde...</> : mode === "login" ? "Entrar" : "Criar conta"}
             </button>
           </div>
           {showResend && (
             <button onClick={handleResend} disabled={resendLoading}
-              className="w-full py-2.5 border border-indigo-500/40 hover:border-indigo-400 text-indigo-400 hover:text-indigo-300 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+              className="w-full mt-3 py-2.5 border border-indigo-500/40 hover:border-indigo-400 text-indigo-400 hover:text-indigo-300 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
               {resendLoading ? <><RefreshCw size={15} className="animate-spin" /> Reenviando...</> : <><Mail size={15} /> Reenviar e-mail de confirmação</>}
             </button>
           )}
@@ -699,55 +706,29 @@ export default function App() {
 
       let allTx = txRes.data ? txRes.data.map(t => ({ ...t, desc: t.description })) : [];
 
-      // ✅ Processa recorrentes automaticamente - preenche todos os meses faltantes
+      // ✅ Processa recorrentes automaticamente
       const now = new Date();
       const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
 
-      // Pega a transação recorrente mais antiga de cada "grupo"
-      const recorrentesMap = {};
-      for (const t of allTx) {
-        if (!t.recurrent) continue;
-        const key = t.description + "|" + t.type + "|" + t.category;
-        if (!recorrentesMap[key] || t.date < recorrentesMap[key].date) {
-          recorrentesMap[key] = t;
-        }
-      }
+      const recorrentes = allTx.filter(t => t.recurrent && t.date?.startsWith(lastMonthStr));
+      const jaExisteEsseMes = allTx.filter(t => t.date?.startsWith(thisMonthStr)).map(t => t.description);
 
-      // Meses já existentes no banco
-      const mesesExistentes = new Set(
-        allTx.filter(t => t.recurrent).map(t => {
-          const key = t.description + "|" + t.type + "|" + t.category;
-          const mes = t.date?.slice(0, 7);
-          return key + "|" + mes;
-        })
-      );
-
-      for (const t of Object.values(recorrentesMap)) {
-        const key = t.description + "|" + t.type + "|" + t.category;
-        const dia = t.date?.split("-")[2] || "01";
-        const origem = new Date(t.date + "T00:00:00");
-        // itera do mês seguinte ao da origem até o mês atual
-        const cursor = new Date(origem.getFullYear(), origem.getMonth() + 1, 1);
-        const limite = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        while (cursor < limite) {
-          const mesStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
-          const chave = key + "|" + mesStr;
-          if (!mesesExistentes.has(chave)) {
-            const novaData = `${mesStr}-${dia}`;
-            const { data, error } = await supabase.db.insertTransaction({
-              type: t.type,
-              description: t.description,
-              amount: t.amount,
-              category: t.category,
-              date: novaData,
-              recurrent: true
-            });
-            if (!error && data?.[0]) {
-              allTx = [{ ...data[0], desc: data[0].description }, ...allTx];
-              mesesExistentes.add(chave);
-            }
+      for (const t of recorrentes) {
+        if (!jaExisteEsseMes.includes(t.description)) {
+          const novaData = t.date.replace(lastMonthStr, thisMonthStr);
+          const { data, error } = await supabase.db.insertTransaction({
+            type: t.type,
+            description: t.description,
+            amount: t.amount,
+            category: t.category,
+            date: novaData,
+            recurrent: true
+          });
+          if (!error && data?.[0]) {
+            allTx = [{ ...data[0], desc: data[0].description }, ...allTx];
           }
-          cursor.setMonth(cursor.getMonth() + 1);
         }
       }
 
@@ -786,10 +767,9 @@ export default function App() {
     })
     .sort((a, b) => a.daysLeft - b.daysLeft);
 
-  // ── Cálculos reais baseados nas transações ─────────────────────────────
   const nowDate = new Date();
   const curYear = nowDate.getFullYear();
-  const curMonth = nowDate.getMonth(); // 0-indexed
+  const curMonth = nowDate.getMonth();
 
   const thisMonthStr = `${curYear}-${String(curMonth + 1).padStart(2, "0")}`;
   const lastMonthStr = curMonth === 0
@@ -809,10 +789,8 @@ export default function App() {
   const trendReceita = lastReceita > 0 ? ((totalReceita - lastReceita) / lastReceita * 100) : 0;
   const trendDespesa = lastDespesa > 0 ? ((totalDespesa - lastDespesa) / lastDespesa * 100) : 0;
 
-  // Saldo total acumulado (todas as transações)
   const saldoTotal = transactions.reduce((a, t) => t.type === "receita" ? a + Number(t.amount) : a - Number(t.amount), 0);
 
-  // Últimos 6 meses de receita vs despesa
   const last6Months = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(curYear, curMonth - 5 + i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -825,13 +803,11 @@ export default function App() {
     };
   });
 
-  // Saldo acumulado mês a mês (patrimônio)
   const balanceByMonth = last6Months.reduce((acc, m, i) => {
     const prev = i === 0 ? saldoTotal - last6Months.slice(i).reduce((a, x) => a + (x.receita - x.despesa), 0) : acc[i - 1].balance;
     return [...acc, { month: m.month, balance: prev + m.receita - m.despesa }];
   }, []);
 
-  // Projeção 3 meses (média dos últimos 3 meses)
   const avg3 = last6Months.slice(-3).reduce((a, m) => ({ r: a.r + m.receita, d: a.d + m.despesa }), { r: 0, d: 0 });
   const avgSaldo = (avg3.r - avg3.d) / 3;
   const lastBalance = balanceByMonth[balanceByMonth.length - 1]?.balance || 0;
@@ -842,7 +818,6 @@ export default function App() {
     { month: getNextMonth(curMonth, curYear, 3), balance: lastBalance + avgSaldo * 3, projected: true },
   ];
 
-  // Categorias reais (despesas do mês atual)
   const CATEGORY_COLORS = { "Trabalho": "#10b981", "Moradia": "#6366f1", "Alimentação": "#22d3ee", "Transporte": "#f59e0b", "Saúde": "#f43f5e", "Lazer": "#8b5cf6", "Investimentos": "#06b6d4", "Outros": "#94a3b8" };
   const catMap = {};
   thisMonth.filter(t => t.type === "despesa").forEach(t => {
@@ -850,12 +825,10 @@ export default function App() {
   });
   const realCategories = Object.entries(catMap).map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] || "#6366f1" })).sort((a, b) => b.value - a.value);
 
-  // Maior receita e despesa do mês
   const biggestReceita = thisMonth.filter(t => t.type === "receita").sort((a, b) => b.amount - a.amount)[0];
   const biggestDespesa = thisMonth.filter(t => t.type === "despesa").sort((a, b) => b.amount - a.amount)[0];
   const topCategory = realCategories[0];
 
-  // Categorias para relatório (todas as despesas, não só do mês)
   const allCatMap = {};
   transactions.filter(t => t.type === "despesa").forEach(t => {
     allCatMap[t.category] = (allCatMap[t.category] || 0) + Number(t.amount);
@@ -941,7 +914,7 @@ export default function App() {
     );
   }
 
-  if (!session) return <AuthScreen onLogin={setSession} />;
+  if (!session) return <AuthScreen onLogin={(data) => setSession(data?.session || data)} />;
 
   return (
     <div className={`${bg} min-h-screen flex font-sans`} style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -1006,7 +979,6 @@ export default function App() {
               </div>
               <button onClick={() => setMobileMenuOpen(false)} className={`p-2 rounded-xl ${muted}`}><X size={18} /></button>
             </div>
-            {/* User info */}
             <div className={`flex items-center gap-3 p-3 rounded-2xl mb-6 ${dark ? "bg-gray-800" : "bg-gray-100"}`}>
               <div className="w-10 h-10 rounded-xl shrink-0 overflow-hidden" style={{ background: "linear-gradient(135deg,#6366f1,#9333ea)" }}>
                 {getUserAvatar()
@@ -1049,11 +1021,9 @@ export default function App() {
         {/* Header */}
         <header className={`sticky top-0 z-10 ${surface} border-b ${border} px-4 md:px-6 py-4 flex items-center justify-between backdrop-blur-xl`}>
           <div className="flex items-center gap-3">
-            {/* Desktop: toggle sidebar */}
             <button onClick={() => setSidebarOpen(o => !o)} className={`hidden md:flex p-2 rounded-xl transition ${dark ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}>
               <ChevronRight size={18} className={`${muted} transition-transform ${sidebarOpen ? "rotate-180" : ""}`} />
             </button>
-            {/* Mobile: open drawer */}
             <button onClick={() => setMobileMenuOpen(true)} className={`flex md:hidden p-2 rounded-xl transition ${dark ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}>
               <Menu size={18} className={muted} />
             </button>
@@ -1065,7 +1035,6 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Notificações */}
             <div className="relative" onClick={e => e.stopPropagation()}>
               <button onClick={() => setNotifOpen(v => !v)}
                 className={`p-2 rounded-xl transition relative ${dark ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}>
@@ -1105,7 +1074,6 @@ export default function App() {
                 </div>
               )}
             </div>
-            {/* Avatar / Profile Dropdown */}
             <div className="relative" onClick={e => e.stopPropagation()}>
               <button onClick={() => setProfileOpen(v => !v)}
                 className="w-9 h-9 rounded-xl overflow-hidden hover:scale-105 transition-transform shadow-lg shadow-indigo-500/30 ring-2 ring-transparent hover:ring-indigo-400 flex-shrink-0"
@@ -1117,7 +1085,6 @@ export default function App() {
               {profileOpen && (
                 <div className={`absolute right-0 top-12 w-64 rounded-2xl shadow-2xl border z-50 overflow-hidden
                   ${dark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                  {/* Header do perfil */}
                   <div className="p-4 border-b border-gray-700/50 flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg flex-shrink-0" style={{ background: "linear-gradient(135deg,#6366f1,#9333ea)" }}>
                       {getUserAvatar()
@@ -1129,7 +1096,6 @@ export default function App() {
                       <p className={`text-xs truncate ${muted}`}>{getUserEmail()}</p>
                     </div>
                   </div>
-                  {/* Opções */}
                   <div className="p-2">
                     <button onClick={() => { setPage("profile"); setProfileOpen(false); }}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${dark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-100 text-gray-700"}`}>
@@ -1155,7 +1121,6 @@ export default function App() {
 
         <div className="p-4 md:p-6 max-w-7xl mx-auto pb-24 md:pb-6">
 
-          {/* ── LOADING ── */}
           {dataLoading && page !== "profile" && (
             <div className="flex items-center justify-center py-24">
               <div className="text-center">
@@ -1167,7 +1132,6 @@ export default function App() {
             </div>
           )}
 
-          {/* ── PERFIL ── */}
           {page === "profile" && (
             <ProfilePage
               session={session}
@@ -1180,7 +1144,6 @@ export default function App() {
             />
           )}
 
-          {/* ── DASHBOARD ── */}
           {!dataLoading && page === "dashboard" && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1271,10 +1234,7 @@ export default function App() {
                             {t.type === "receita" ? <TrendingUp size={14} className="text-emerald-500" /> : <TrendingDown size={14} className="text-red-500" />}
                           </div>
                           <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className={`text-xs font-medium ${text}`}>{t.desc}</p>
-                              {t.recurrent && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 font-semibold">↺</span>}
-                            </div>
+                            <p className={`text-xs font-medium ${text}`}>{t.desc}</p>
                             <p className={`text-xs ${muted}`}>{t.category}</p>
                           </div>
                         </div>
@@ -1320,7 +1280,6 @@ export default function App() {
             </div>
           )}
 
-          {/* ── TRANSACTIONS ── */}
           {!dataLoading && page === "transactions" && (
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
@@ -1365,12 +1324,7 @@ export default function App() {
                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${t.type === "receita" ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
                               {t.type === "receita" ? <TrendingUp size={14} className="text-emerald-500" /> : <TrendingDown size={14} className="text-red-500" />}
                             </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-sm font-medium ${text}`}>{t.desc}</span>
-                                {t.recurrent && <span title="Recorrente" className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 font-semibold shrink-0">↺</span>}
-                              </div>
-                            </div>
+                            <span className={`text-sm font-medium ${text}`}>{t.desc}</span>
                           </div>
                         </td>
                         <td className={`px-5 py-3 text-sm ${muted} hidden sm:table-cell`}>
@@ -1396,7 +1350,6 @@ export default function App() {
             </div>
           )}
 
-          {/* ── GOALS ── */}
           {!dataLoading && page === "goals" && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -1441,7 +1394,6 @@ export default function App() {
             </div>
           )}
 
-          {/* ── REPORTS ── */}
           {!dataLoading && page === "reports" && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1504,7 +1456,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Footer */}
         <footer className={`border-t ${border} px-6 py-4 mt-4`}>
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -1531,7 +1482,6 @@ export default function App() {
         </footer>
       </main>
 
-      {/* ── BOTTOM NAV (mobile only) ── */}
       <nav className={`fixed bottom-0 left-0 right-0 z-40 md:hidden ${surface} border-t ${border} flex items-center justify-around px-2 py-2 safe-area-pb`}
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
         {[...navItems, { id: "profile", label: "Perfil", icon: User }].map(({ id, label, icon: Icon }) => (
@@ -1544,7 +1494,6 @@ export default function App() {
         ))}
       </nav>
 
-      {/* Transaction Modal */}
       <Modal open={txModal} onClose={() => setTxModal(false)} title="Nova Transação" dark={dark}>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
@@ -1575,7 +1524,6 @@ export default function App() {
         </div>
       </Modal>
 
-      {/* Goal Modal */}
       <Modal open={goalModal} onClose={() => setGoalModal(false)} title="Nova Meta" dark={dark}>
         <div className="space-y-3">
           <div><label className={labelCls}>Nome da Meta</label><input value={goalForm.name} onChange={e => setGoalForm(f => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="Ex: Viagem para Europa" /></div>
