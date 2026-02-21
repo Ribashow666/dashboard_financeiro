@@ -1476,7 +1476,7 @@ export default function App() {
               <span className={`text-xs ${muted}`}>·</span>
               <a href="https://github.com/Ribashow666" target="_blank" rel="noopener noreferrer" className={`text-xs ${muted} hover:text-white transition font-medium`}>GitHub</a>
               <span className={`text-xs ${muted}`}>·</span>
-              <a href="mailto:suporte@financaspro.com" className={`text-xs ${muted} hover:text-emerald-400 transition font-medium`}>Suporte</a>
+              <a href="mailto:guilherme_ribas12@hotmail.com" className={`text-xs ${muted} hover:text-emerald-400 transition font-medium`}>Suporte</a>
             </div>
           </div>
         </footer>
