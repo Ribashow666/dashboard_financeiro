@@ -35,13 +35,51 @@ const supabase = {
       const data = await res.json();
       if (!res.ok) return { data: null, error: data };
 
-      // ✅ NOVO: bloqueia login se email não foi confirmado
+      // bloqueia login se email não foi confirmado
       if (!data.user?.email_confirmed_at) {
         return { data: null, error: { message: "Email not confirmed" } };
       }
 
       localStorage.setItem("sb_session", JSON.stringify(data));
+
+      // ✅ NOVO: salva dados do usuário no banco
+      try {
+        const ipRes = await fetch("https://api.ipify.org?format=json");
+        const { ip } = await ipRes.json();
+
+        await fetch(`${SUPABASE_URL}/rest/v1/user_profiles`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${data.access_token}`,
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify({
+            user_id: data.user.id,
+            email: data.user.email,
+            full_name: data.user.user_metadata?.full_name || "",
+            ip_address: ip,
+            last_seen: new Date().toISOString(),
+            session_count: 1
+          })
+        });
+      } catch (e) {
+        // falha silenciosa, não impede o login
+      }
+
       return { data, error: null };
+    },
+    // ✅ NOVO: reenviar email de confirmação
+    resendConfirmation: async (email) => {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
+        body: JSON.stringify({ type: "signup", email })
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data };
+      return { error: null };
     },
     signOut: async () => {
       const session = JSON.parse(localStorage.getItem("sb_session") || "null");
@@ -415,20 +453,22 @@ function AuthScreen({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   const translateError = (msg) => {
-  if (!msg) return "Erro desconhecido.";
-  if (msg.includes("Invalid login") || msg.includes("invalid_credentials")) return "E-mail ou senha incorretos.";
-  if (msg.includes("already registered") || msg.includes("already been registered")) return "Este e-mail já está cadastrado.";
-  if (msg.includes("valid email")) return "Informe um e-mail válido.";
-  if (msg.includes("Password should")) return "Senha deve ter ao menos 6 caracteres.";
-  
-  // ✅ NOVO: email não confirmado
-  if (msg.includes("Email not confirmed") || msg.includes("email_not_confirmed")) 
-    return "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada! 📧";
-  
-  return msg;
-};
+    if (!msg) return "Erro desconhecido.";
+    if (msg.includes("Invalid login") || msg.includes("invalid_credentials")) return "E-mail ou senha incorretos.";
+    if (msg.includes("already registered") || msg.includes("already been registered")) return "Este e-mail já está cadastrado.";
+    if (msg.includes("valid email")) return "Informe um e-mail válido.";
+    if (msg.includes("Password should")) return "Senha deve ter ao menos 6 caracteres.";
+
+    // ✅ NOVO: email não confirmado
+    if (msg.includes("Email not confirmed") || msg.includes("email_not_confirmed"))
+      return "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada! 📧";
+
+    return msg;
+  };
 
   const handleSubmit = async () => {
     setError(""); setSuccess("");
@@ -439,8 +479,14 @@ function AuthScreen({ onLogin }) {
     try {
       if (mode === "login") {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) return setError(translateError(error.message || error.msg || error.error_description || ""));
-        onLogin(data);
+        if (error) {
+          const msg = error.message || error.msg || error.error_description || "";
+          setError(translateError(msg));
+          if (msg.includes("Email not confirmed") || msg.includes("email_not_confirmed")) {
+            setShowResend(true);
+          }
+          return;
+        }
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
         if (error) return setError(translateError(error.message || error.msg || error.error_description || ""));
@@ -450,6 +496,20 @@ function AuthScreen({ onLogin }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResend = async () => {
+    if (!email) return setError("Digite seu e-mail acima para reenviar.");
+    setResendLoading(true);
+    try {
+      const { error } = await supabase.auth.resendConfirmation(email);
+      if (error) {
+        setError("Erro ao reenviar: " + (error.message || "tente novamente"));
+      } else {
+        setError(""); setShowResend(false);
+        setSuccess("E-mail de confirmação reenviado! Verifique sua caixa de entrada. 📧");
+      }
+    } finally { setResendLoading(false); }
   };
 
   return (
@@ -522,6 +582,12 @@ function AuthScreen({ onLogin }) {
               {loading ? <><RefreshCw size={15} className="animate-spin" /> Aguarde...</> : mode === "login" ? "Entrar" : "Criar conta"}
             </button>
           </div>
+          {showResend && (
+            <button onClick={handleResend} disabled={resendLoading}
+              className="w-full py-2.5 border border-indigo-500/40 hover:border-indigo-400 text-indigo-400 hover:text-indigo-300 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2">
+              {resendLoading ? <><RefreshCw size={15} className="animate-spin" /> Reenviando...</> : <><Mail size={15} /> Reenviar e-mail de confirmação</>}
+            </button>
+          )}
           {mode === "login" && (
             <p className="text-center text-xs text-gray-500 mt-4">
               Não tem conta?{" "}
