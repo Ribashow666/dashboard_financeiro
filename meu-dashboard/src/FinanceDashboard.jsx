@@ -1375,13 +1375,13 @@ export default function App() {
               </div>
               <span className={`text-xs ${muted}`}>
                 © {new Date().getFullYear()} FinançasPRO · Feito com ❤️ por{" "}
-                <a href="https://www.linkedin.com/in/ailton-ribas" target="_blank" rel="noopener noreferrer"
+                <a href="https://www.linkedin.com/in/ailton-guilherme" target="_blank" rel="noopener noreferrer"
                   className="text-indigo-400 hover:text-indigo-300 transition font-semibold">Ailton Ribas</a>
               </span>
               <span className="text-xs px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 font-mono">v1.0.0</span>
             </div>
             <div className="flex items-center gap-3">
-              <a href="https://www.linkedin.com/in/ailton-ribas" target="_blank" rel="noopener noreferrer" className={`text-xs ${muted} hover:text-indigo-400 transition font-medium`}>LinkedIn</a>
+              <a href="https://www.linkedin.com/in/ailton-guilherme" target="_blank" rel="noopener noreferrer" className={`text-xs ${muted} hover:text-indigo-400 transition font-medium`}>LinkedIn</a>
               <span className={`text-xs ${muted}`}>·</span>
               <a href="https://instagram.com/ag_ribas" target="_blank" rel="noopener noreferrer" className={`text-xs ${muted} hover:text-pink-400 transition font-medium`}>Instagram</a>
               <span className={`text-xs ${muted}`}>·</span>
