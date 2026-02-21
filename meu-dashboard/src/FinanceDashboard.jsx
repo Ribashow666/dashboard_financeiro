@@ -698,7 +698,36 @@ export default function App() {
         supabase.db.fetchTransactions(),
         supabase.db.fetchGoals(),
       ]);
-      if (txRes.data) setTransactions(txRes.data.map(t => ({ ...t, desc: t.description })));
+
+      let allTx = txRes.data ? txRes.data.map(t => ({ ...t, desc: t.description })) : [];
+
+      // ✅ Processa recorrentes automaticamente
+      const now = new Date();
+      const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
+
+      const recorrentes = allTx.filter(t => t.recurrent && t.date?.startsWith(lastMonthStr));
+      const jaExisteEsseMes = allTx.filter(t => t.date?.startsWith(thisMonthStr)).map(t => t.description);
+
+      for (const t of recorrentes) {
+        if (!jaExisteEsseMes.includes(t.description)) {
+          const novaData = t.date.replace(lastMonthStr, thisMonthStr);
+          const { data, error } = await supabase.db.insertTransaction({
+            type: t.type,
+            description: t.description,
+            amount: t.amount,
+            category: t.category,
+            date: novaData,
+            recurrent: true
+          });
+          if (!error && data?.[0]) {
+            allTx = [{ ...data[0], desc: data[0].description }, ...allTx];
+          }
+        }
+      }
+
+      setTransactions(allTx);
       if (goalRes.data) setGoals(goalRes.data);
       setDataLoading(false);
     };
