@@ -47,21 +47,18 @@ const supabase = {
         const ipRes = await fetch("https://api.ipify.org?format=json");
         const { ip } = await ipRes.json();
 
-        await fetch(`${SUPABASE_URL}/rest/v1/user_profiles`, {
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/upsert_user_profile`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "apikey": SUPABASE_ANON_KEY,
             "Authorization": `Bearer ${data.access_token}`,
-            "Prefer": "resolution=merge-duplicates"
           },
           body: JSON.stringify({
-            user_id: data.user.id,
-            email: data.user.email,
-            full_name: data.user.user_metadata?.full_name || "",
-            ip_address: ip,
-            last_seen: new Date().toISOString(),
-            session_count: 1
+            p_user_id: data.user.id,
+            p_email: data.user.email,
+            p_full_name: data.user.user_metadata?.full_name || "",
+            p_ip: ip
           })
         });
       } catch (e) {
