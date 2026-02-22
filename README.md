@@ -1,6 +1,7 @@
 # FinançasPRO 💰
 
 Dashboard financeiro pessoal moderno com controle de receitas, despesas, metas e gráficos interativos.
+Site disponível em: https://financaspro-app.vercel.app/
 
 ## 🚀 Como rodar
 
